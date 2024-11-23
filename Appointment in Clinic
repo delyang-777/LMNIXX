@@ -1,5 +1,10 @@
 import streamlit as st
 import datetime
+import json
+import os
+
+# Path to the JSON file that will store the appointments
+appointments_file = "appointments.json"
 
 # Injecting custom CSS
 st.markdown("""
@@ -40,9 +45,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Function to load appointments from JSON file
+def load_appointments():
+    if os.path.exists(appointments_file):
+        with open(appointments_file, "r") as file:
+            return json.load(file)
+    return []
+
+# Function to save appointments to JSON file
+def save_appointments(appointments):
+    with open(appointments_file, "w") as file:
+        json.dump(appointments, file, default=str)  # Using default=str to handle datetime serialization
+
 # Initialize session state for appointments
 if "appointments" not in st.session_state:
-    st.session_state.appointments = []
+    st.session_state.appointments = load_appointments()
 
 # Function to convert selected time to 24-hour format
 def parse_selected_time(hour, minute, period):
@@ -98,7 +115,9 @@ with st.expander("Create Appointment", expanded=True):
         if name:
             appointment_time = parse_selected_time(hour, minute, period)
             appointment_datetime = datetime.datetime.combine(date, appointment_time)
-            st.session_state.appointments.append({"name": name, "date": appointment_datetime})
+            new_appointment = {"name": name, "date": appointment_datetime}
+            st.session_state.appointments.append(new_appointment)
+            save_appointments(st.session_state.appointments)  # Save to JSON
             st.success("Appointment added successfully!")
         else:
             st.error("Client name cannot be empty.")
@@ -115,6 +134,7 @@ with st.expander("Sort Appointments"):
             st.session_state.appointments = quicksort(
                 st.session_state.appointments, key_func=lambda appt: appt["name"].lower()
             )
+        save_appointments(st.session_state.appointments)  # Save to JSON
         st.success("Appointments sorted successfully!")
 
 # Display Appointments
@@ -148,6 +168,7 @@ with st.expander("Update Appointment"):
                     "name": new_name,
                     "date": datetime.datetime.combine(new_date, new_time),
                 }
+                save_appointments(st.session_state.appointments)  # Save to JSON
                 st.success("Appointment updated successfully!")
     else:
         st.write("No appointments available to update.")
@@ -164,6 +185,7 @@ with st.expander("Delete Appointment"):
         if appt_to_delete and st.button("Delete Appointment"):
             index = int(appt_to_delete.split(".")[0]) - 1
             st.session_state.appointments.pop(index)
+            save_appointments(st.session_state.appointments)  # Save to JSON
             st.success("Appointment deleted successfully!")
     else:
         st.write("No appointments available to delete.")
@@ -186,3 +208,4 @@ with st.expander("Search Appointments"):
             st.markdown(f"**{appt['name']}** - {appt['date']}")
         else:
             st.write("No matching appointments found.")
+
